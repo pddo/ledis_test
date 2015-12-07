@@ -2,8 +2,8 @@ require_relative './test_helper.rb'
 
 class MyHTTP
   include HTTParty
-  #base_uri('162.243.174.242')
-  base_uri('localhost:8080')
+  base_uri('128.199.194.138')
+  #base_uri('localhost:8080')
 
   def self.exec(command, key = nil, *vals)
     cmd = build_command(command, key, vals)
@@ -24,7 +24,7 @@ class MyHTTP
     else
       result = ''
     end
-    
+
     [res, result]
   end
 
@@ -32,11 +32,19 @@ class MyHTTP
     cmd = command.to_s
     cmd +=  ' ' + key.to_s if key
     cmd += " " + vals.join(' ') if vals
-    cmd
+    cmd.strip
   end
 
   def self.clear
     exec('FLUSHDB')
+  end
+
+  def self.save
+    exec('SAVE')
+  end
+
+  def self.restore
+    exec('RESTORE')
   end
 
 end
@@ -51,7 +59,7 @@ describe 'Ledis spec' do
   describe 'String spec' do
     before(:all) do
     end
-    
+
     it 'should set & get a string' do
       res = @http.exec(:set, @str_key1, @str_val1)
       verify_good_response(res)
@@ -59,7 +67,7 @@ describe 'Ledis spec' do
       verify_good_response(res)
 
       res, result = @http.exec_with_result(:set, @str_key1, @str_val1)
-      
+
       verify_good_response(res)
       result.must_equal 'OK'
     end
@@ -68,24 +76,53 @@ describe 'Ledis spec' do
   describe 'General' do
      before(:all) do
      end
-     
+
     it 'should clear all keys' do
       res, result = @http.exec_with_result(:set, @str_key1, @str_val1)
       verify_good_response(res)
       result.must_equal 'OK'
 
-      res, result = @http.exec_with_result(:set, @str_key1, @str_val1)
+      res, result = @http.exec_with_result(:get, @str_key1, @str_val1)
       verify_good_response(res)
+      result.must_equal @str_val1
 
-      result.must_equal 'OK'
-      
       @http.clear
 
       res, result = @http.exec_with_result(:get, @str_key1, @str_val1)
       verify_good_response(res)
-
       result.must_equal 'EKTYP'
+
+      res, result = @http.exec_with_result(:set, @str_key1, @str_val1)
+      verify_good_response(res)
+      result.must_equal 'OK'
+
+      res, result = @http.exec_with_result(:get, @str_key1)
+      verify_good_response(res)
+      result.must_equal @str_val1
     end
+
+    it 'should save & restore keys' do
+      res, result = @http.exec_with_result(:set, @str_key1, @str_val1)
+      verify_good_response(res)
+      result.must_equal 'OK'
+
+      @http.save
+
+      res, result = @http.exec_with_result(:set, @str_key1, '2222')
+      verify_good_response(res)
+      result.must_equal 'OK'
+
+      res, result = @http.exec_with_result(:get, @str_key1)
+      verify_good_response(res)
+      result.must_equal '2222'
+
+      @http.restore
+
+      res, result = @http.exec_with_result(:get, @str_key1)
+      verify_good_response(res)
+      result.must_equal @str_val1
+    end
+
   end
 
   def verify_good_response(res)
